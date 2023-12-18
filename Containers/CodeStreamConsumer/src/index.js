@@ -9,7 +9,6 @@ const CloneDetector = require('./CloneDetector');
 const CloneStorage = require('./CloneStorage');
 const FileStorage = require('./FileStorage');
 
-
 // Express and Formidable stuff to receice a file for further processing
 // --------------------
 const form = formidable({multiples:false});
@@ -24,6 +23,7 @@ function fileReceiver(req, res, next) {
 }
 
 app.get('/', viewClones );
+app.get('/timers', viewTimers);
 
 const server = app.listen(PORT, () => { console.log('Listening for files on port', PORT); });
 
@@ -41,6 +41,16 @@ function lastFileTimersHTML() {
     if (!lastFile) return '';
     output = '<p>Timers for last file processed:</p>\n<ul>\n'
     let timers = Timer.getTimers(lastFile);
+    for (t in timers) {
+        output += '<li>' + t + ': ' + (timers[t] / (1000n)) + ' µs\n'
+    }
+    output += '</ul>\n';
+    return output;
+}
+
+function fileTimersHTML(file) {
+    output = '<p>Timers for file: ' + file.name + '</p>\n<ul>\n'
+    let timers = Timer.getTimers(file);
     for (t in timers) {
         output += '<li>' + t + ': ' + (timers[t] / (1000n)) + ' µs\n'
     }
@@ -91,6 +101,59 @@ function viewClones(req, res, next) {
     res.send(page);
 }
 
+function viewTimers(req, res, next) {
+    let fileStore = FileStorage.getInstance();
+    let timerMatch = [];
+    let timerTotal = [];
+
+    for(let f of fileStore.getAllFiles()){
+        let timers = Timer.getTimers(f);
+        timerMatch.push(timers["match"]);
+        timerTotal.push(timers["total"]);
+    }
+
+    // Calculate average times per file
+    let averageMatchTimePerFile = calculateAverageTime(timerMatch);
+    let averageTotalTimePerFile = calculateAverageTime(timerTotal);
+
+    // Calculate average times per last 100 files
+    let last100Timers = timerMatch.slice(-100);
+    let averageMatchTimeLast100Files = calculateAverageTime(last100Timers);
+    last100Timers = timerTotal.slice(-100);
+    let averageTotalTimeLast100Files = calculateAverageTime(last100Timers);
+    // Calculate average time per last 1000 files
+    let last1000Timers = timerMatch.slice(-1000);
+    let averageMatchTimeLast1000Files = calculateAverageTime(last1000Timers);
+    last1000Timers = timerTotal.slice(-1000);
+    let averageTotalTimeLast1000Files = calculateAverageTime(last1000Timers);
+
+
+    let page = '<HTML><HEAD><TITLE>CodeStream Clone Detector - Timers</TITLE></HEAD>\n';
+    page += '<BODY><H1>CodeStream Clone Detector - Timers</H1>\n';
+    page += '<H2>Displaying in-depth statistics for timers:</H2>\n';
+    page += `<P>Average Match time per file: ${averageMatchTimePerFile / 1000n} µs</P>\n`;
+    page += `<P>Average Total time per file: ${averageTotalTimePerFile / 1000n} µs</P>\n`;
+    page += `<P>Average Match time per last 100 files: ${averageMatchTimeLast100Files / 1000n} µs</P>\n`;
+    page += `<P>Average Total time per last 100 files: ${averageTotalTimeLast100Files / 1000n} µs</P>\n`;
+    page += `<P>Average Match time per last 1000 files: ${averageMatchTimeLast1000Files / 1000n} µs</P>\n`;
+    page += `<P>Average Total time per last 1000 files: ${averageTotalTimeLast1000Files / 1000n} µs</P>\n`;
+    page += `<canvas id="myChart" width="400" height="400"></canvas>\n`;
+    for(let f of fileStore.getAllFiles()){
+        page += fileTimersHTML(f) + '\n';
+    }
+    page += '</BODY></HTML>';
+    res.send(page);
+}
+
+function calculateAverageTime(timers) {
+    if (timers.length === 0) {
+        return 0n;
+    }
+
+    let total = timers.reduce((acc, time) => acc + BigInt(time), 0n);
+    return total / BigInt(timers.length);
+}
+
 // Some helper functions
 // --------------------
 // PASS is used to insert functions in a Promise stream and pass on all input parameters untouched.
@@ -117,6 +180,7 @@ function maybePrintStatistics(file, cloneDetector, cloneStore) {
         }
         console.log(str);
         console.log('List of found clones available at', URL);
+        Timer.storeTimers(file);
     }
 
     return file;
