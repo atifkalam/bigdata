@@ -7,9 +7,9 @@
 (def DEFAULT-CHUNKSIZE 5)
 (def source-dir (or (System/getenv "SOURCEDIR") "/tmp"))
 (def source-type #".*\.java")
-
+@;; MAK add the storge update parameter arguments
 (defn ts-println [& args]
-  (println (.toString (java.time.LocalDateTime/now)) args))
+  (println (.toString (java.time.LocalDateTime/now)) args) (storage/addUpdate! args))
 
 (defn maybe-clear-db [args]
   (when (some #{"CLEAR"} (map string/upper-case args))

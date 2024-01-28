@@ -14,8 +14,12 @@ class Timer {
         return file;
     }
 
+    static storeTimers(file) {
+        storedTimers.push(file.timers);
+    }
     static getTimers(file) { return file.timers; }
-}
 
+}
+const storedTimers = [];
 
 module.exports = Timer;

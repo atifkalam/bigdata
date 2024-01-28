@@ -16,7 +16,14 @@ services:
       SOURCEDIReclipse: "/QualitasCorpus/QualitasCorpus-20130901r/Systems/eclipse_SDK"
       SOURCEDIR: "/QualitasCorpus"
       CHUNKSIZE: 20
-
+  monitortool:
+    image: monitorpytool
+    ports:
+      - 6001:5000
+    depends_on:
+      - dbstorage
+    environment:
+      MONGO_URI: "mongodb://dbstorage:27017/cloneDetector"  # Adjust this based on your MongoDB URI
   dbstorage:
     image: mongo
     restart: always

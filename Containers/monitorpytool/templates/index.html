@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clone Detector Statistics</title>
+</head>
+<body>
+<h1>Clone Detector Statistics</h1>
+
+<div>
+    <p>Files: {{ data[0]['files'] }}</p>
+    <p>Clones: {{ data[0]['clones'] }}</p>
+    <p>Chunks: {{ data[0]['chunks'] }}</p>
+    <p>Candidates: {{ data[0]['candidates'] }}</p>
+</div>
+
+<div>
+    {{ plot | safe }}
+</div>
+</body>
+</html>

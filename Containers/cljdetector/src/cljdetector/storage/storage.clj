@@ -8,7 +8,8 @@
 (def dbname "cloneDetector")
 (def partition-size 100)
 (def hostname (or (System/getenv "DBHOST") DEFAULT-DBHOST))
-(def collnames ["files"  "chunks" "candidates" "clones"])
+@;; MAK Passing the status update 
+(def collnames ["files"  "chunks" "candidates" "clones" "statusUpdates"])
 
 (defn print-statistics []
   (let [conn (mg/connect {:host hostname})        
@@ -144,3 +145,52 @@
         collname "clones"
         anonymous-clone (select-keys clone [:numberOfInstances :instances])]
     (mc/insert db collname anonymous-clone)))
+     
+@;; MAK Defining the new method
+  (defn addUpdate! [message]
+  (let [conn (mg/connect {:host hostname})
+        db (mg/get-db conn dbname)
+        timestamp (java.time.LocalDateTime/now)
+        collname "statusUpdates"
+        logmessage(apply str message)]
+      (mc/insert db collname {:message logmessage :timestamp timestamp})))
+@;; MAK adding method from assignment
+(defn get-overlapping-candidates [conn candidate]
+  (let [db (mg/get-db conn dbname)
+        collname "candidates"
+        clj-cand (from-db-object candidate true)]
+    (mc/aggregate db collname
+                  [{$match 
+                    {"instances.fileName" 
+                     {$all (map #(:fileName %) (:instances clj-cand))}}}
+                   {$addFields {:candidate candidate}}
+                   {$unwind "$instances"}
+                   {$project 
+                    {:matches
+                     {$filter
+                      {:input "$candidate.instances"
+                       :cond
+                       {$and 
+                        [{$eq
+                          ["$$this.fileName" "$instances.fileName"]}
+                         {$or
+                          [{$and 
+                            [{$gt ["$$this.startLine" "$instances.startLine"]}
+                             {$lte ["$$this.startLine" "$instances.endLine"]}]}
+                           {$and
+                            [{$gt ["$instances.startLine" "$$this.startLine"]}
+                             {$lte ["$instances.startLine" "$$this.endLine"]}
+                             ]}]}]}}}
+                     :instances 1
+                     :numberOfInstances 1
+                     :candidate 1
+                     }}
+                   {$match {$expr {$gt [{$size "$matches"} 0]}}}
+                   {$group {:_id "$_id"
+                            :candidate {$first "$candidate"}
+                            :numberOfInstances {$max "$numberOfInstances"}
+                            :instances {$push "$instances"}}}
+                   {$match {$expr 
+                            {$eq 
+                             [{$size "$candidate.instances"} "$numberOfInstances"]}}}
+                   {$project {:_id 1 :numberOfInstances 1 :instances 1}}])))

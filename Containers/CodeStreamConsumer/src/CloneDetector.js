@@ -92,7 +92,15 @@ class CloneDetector {
         // Return: file, including file.instances which is an array of Clone objects (or an empty array).
         //
 
-        file.instances = file.instances || [];        
+        file.instances = file.instances || [];
+        let newInstances = [];
+        for(let f of file.chunks){
+            for(let c of compareFile.chunks){
+                if(this.#chunkMatch(f,c)){
+                    newInstances.push(new Clone(file.name, compareFile.name, f, c));
+                }
+            }
+        }
         file.instances = file.instances.concat(newInstances);
         return file;
     }
@@ -111,7 +119,19 @@ class CloneDetector {
         // Return: file, with file.instances only including Clones that have been expanded as much as they can,
         //         and not any of the Clones used during that expansion.
         //
-
+        file.instances = file.instances.reduce((accumulator, currentClone) => {
+            let canExpand = false;
+            for (let clone of accumulator) {
+                if (clone.maybeExpandWith(currentClone)) {
+                    canExpand = true;
+                    break;
+                }
+            }
+            if (!canExpand) {
+                accumulator.push(currentClone);
+            }
+            return accumulator;
+        }, []);
         return file;
     }
     
@@ -128,6 +148,16 @@ class CloneDetector {
         //
         // Return: file, with file.instances containing unique Clone objects that may contain several targets
         //
+
+        file.instances = file.instances.reduce((accumulator, currentClone) => {
+            let existingClone = accumulator.find(clone => clone.equals(currentClone));
+            if (!existingClone) {
+                accumulator.push(currentClone);
+            } else {
+                existingClone.addTarget(currentClone);
+            }
+            return accumulator;
+        }, []);
 
         return file;
     }
